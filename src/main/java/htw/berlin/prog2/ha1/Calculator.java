@@ -59,7 +59,17 @@ public class Calculator {
      * auf dem Bildschirm angezeigt. Falls hierbei eine Division durch Null auftritt, wird "Error" angezeigt.
      * @param operation "+" für Addition, "-" für Substraktion, "x" für Multiplikation, "/" für Division
      */
+    /**
+     * Setzt die binäre Operation (+, -, x, /) und speichert den aktuell sichtbaren Wert.
+     * Neu: akzeptiert auch "*" oder "×" als Alias für "x".
+     */
     public void pressBinaryOperationKey(String operation)  {
+        // --- NEU: Aliase auf "x" mappen, damit Multiplikation sicher erkannt wird ---
+        if ("*".equals(operation) || "×".equals(operation) || "X".equals(operation)) {
+            operation = "x";
+        }
+        // ---------------------------------------------------------------------------
+
         latestValue = Double.parseDouble(screen);
         latestOperation = operation;
     }
@@ -137,9 +147,27 @@ public class Calculator {
      *
      * - Abschließend wird die Anzeige auf 11 Zeichen begrenzt, damit sie auf den Bildschirm passt.
      */
+    /**
+     * Führt die zuletzt gesetzte Operation mit dem aktuellen Bildschirmwert aus.
+     * Neu:
+     * - Division durch 0/NaN -> "Error"
+     * - Ergebnis auf 1 Nachkommastelle runden (HALF_UP), z. B. -4.6
+     * - Ausgabe ohne Exponentialschreibweise (toPlainString)
+     * - "-0" wird zu "0"
+     * - Länge auf 11 Zeichen begrenzt (Displaylimit)
+     */
     public void pressEqualsKey() {
-        // Führt die gespeicherte Rechenoperation aus
-        var result = switch (latestOperation) {
+        // Wenn noch keine Operation gesetzt ist: nichts tun (verhindert Exception)
+        if (latestOperation == null || latestOperation.isEmpty()) return;
+
+        // Division durch 0 früh abfangen
+        if (latestOperation.equals("/") && Double.parseDouble(screen) == 0.0) {
+            screen = "Error";
+            return;
+        }
+
+        // Rechnen
+        double result = switch (latestOperation) {
             case "+" -> latestValue + Double.parseDouble(screen);
             case "-" -> latestValue - Double.parseDouble(screen);
             case "x" -> latestValue * Double.parseDouble(screen);
@@ -147,21 +175,25 @@ public class Calculator {
             default -> throw new IllegalArgumentException();
         };
 
-        // Wenn Ergebnis unendlich oder keine Zahl ist, Fehler anzeigen
-        if (Double.isInfinite(result) || Double.isNaN(result)) {
+        // Fehlerfälle (z. B. 0/0) -> "Error"
+        if (Double.isNaN(result) || Double.isInfinite(result)) {
             screen = "Error";
-            return; // Methode beenden, damit nichts weiter ausgeführt wird
+            return;
         }
 
-        // Ergebnis in normale Textform umwandeln (ohne Exponentialschreibweise)
-        screen = java.math.BigDecimal.valueOf(result)
-                .stripTrailingZeros() // entfernt überflüssige Nullen am Ende
-                .toPlainString();     // zeigt die Zahl normal an, z. B. "152399025" statt "1.52399025E8"
+        // NEU: auf 1 Nachkommastelle runden (kaufmännisch)
+        java.math.BigDecimal rounded = java.math.BigDecimal
+                .valueOf(result)
+                .setScale(1, java.math.RoundingMode.HALF_UP);
 
-        // Wenn Ergebnis "-0" ist (kann bei negativen Zahlen entstehen), in "0" umwandeln
+        // Lesbar ohne Exponentialschreibweise ausgeben
+        screen = rounded.stripTrailingZeros().toPlainString();
+
+        // "-0" vermeiden
         if (screen.equals("-0")) screen = "0";
 
-        // Anzeige auf maximal 11 Zeichen begrenzen (wie beim echten Taschenrechner)
+        // Display-Limit einhalten
         if (screen.length() > 11) screen = screen.substring(0, 11);
     }
+
 }
