@@ -117,17 +117,51 @@ public class Calculator {
      * Operation (ggf. inklusive letztem Operand) erneut auf den aktuellen Bildschirminhalt angewandt
      * und das Ergebnis direkt angezeigt.
      */
+    /**
+     * Empfängt den Befehl der gedrückten "="-Taste.
+     * Führt die zuvor gespeicherte Rechenoperation (z. B. +, -, x, /) mit dem aktuell eingegebenen
+     * Wert auf dem Bildschirm aus und zeigt das Ergebnis an.
+     *
+     * In dieser Version wurde die Art geändert, wie das Ergebnis in Textform (also auf dem Bildschirm)
+     * angezeigt wird:
+     *
+     * - Früher wurde das Ergebnis einfach mit Double.toString(result) umgewandelt.
+     *   Das führte dazu, dass sehr große oder sehr kleine Zahlen in wissenschaftlicher
+     *   Notation angezeigt wurden (z. B. "1.52399025E8" statt "152399025").
+     *
+     * - Jetzt wird das Ergebnis mit BigDecimal formatiert. Dadurch wird die Zahl immer
+     *   "normal" dargestellt, also so wie man sie auf einem Taschenrechner erwarten würde.
+     *
+     * - Außerdem wird jetzt überprüft, ob das Ergebnis "NaN" (keine Zahl) oder "Infinity"
+     *   (z. B. bei Division durch 0) ist. In diesen Fällen zeigt der Rechner "Error" an.
+     *
+     * - Abschließend wird die Anzeige auf 11 Zeichen begrenzt, damit sie auf den Bildschirm passt.
+     */
     public void pressEqualsKey() {
-        var result = switch(latestOperation) {
+        // Führt die gespeicherte Rechenoperation aus
+        var result = switch (latestOperation) {
             case "+" -> latestValue + Double.parseDouble(screen);
             case "-" -> latestValue - Double.parseDouble(screen);
             case "x" -> latestValue * Double.parseDouble(screen);
             case "/" -> latestValue / Double.parseDouble(screen);
             default -> throw new IllegalArgumentException();
         };
-        screen = Double.toString(result);
-        if(screen.equals("Infinity")) screen = "Error";
-        if(screen.endsWith(".0")) screen = screen.substring(0,screen.length()-2);
-        if(screen.contains(".") && screen.length() > 11) screen = screen.substring(0, 10);
+
+        // Wenn Ergebnis unendlich oder keine Zahl ist, Fehler anzeigen
+        if (Double.isInfinite(result) || Double.isNaN(result)) {
+            screen = "Error";
+            return; // Methode beenden, damit nichts weiter ausgeführt wird
+        }
+
+        // Ergebnis in normale Textform umwandeln (ohne Exponentialschreibweise)
+        screen = java.math.BigDecimal.valueOf(result)
+                .stripTrailingZeros() // entfernt überflüssige Nullen am Ende
+                .toPlainString();     // zeigt die Zahl normal an, z. B. "152399025" statt "1.52399025E8"
+
+        // Wenn Ergebnis "-0" ist (kann bei negativen Zahlen entstehen), in "0" umwandeln
+        if (screen.equals("-0")) screen = "0";
+
+        // Anzeige auf maximal 11 Zeichen begrenzen (wie beim echten Taschenrechner)
+        if (screen.length() > 11) screen = screen.substring(0, 11);
     }
 }
